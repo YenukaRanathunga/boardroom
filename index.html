@@ -945,8 +945,10 @@
 
     const STORAGE_KEY = "outlook_boardroom_db_v3";
     
-    // Live Online Shared ERP Cloud API (shared across all users in real time)
-    const CLOUD_API_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a13939d36c5b47";
+    // Live Online Shared ERP Cloud API (Native Neon PostgreSQL on Vercel)
+    const CLOUD_API_URL = (window.location.protocol === "file:" || !window.location.host.includes("vercel.app"))
+      ? "https://boardroom-lyart.vercel.app/api/bookings"
+      : "/api/bookings";
 
     const CARD_STYLES = [
       { class: "outlook-event-card", border: "#0078D4", bg: "#C7E0F4", text: "#004A83" },
@@ -1007,7 +1009,7 @@
       return CARD_STYLES[hash % CARD_STYLES.length];
     }
 
-    /* Cloud Sync Engine (ERP Live Shared Online Database) */
+    /* Cloud Sync Engine (Native PostgreSQL on Vercel - Unlimited & Instant) */
     async function syncFromCloud() {
       if (isCloudSyncing) return;
       isCloudSyncing = true;
@@ -1015,47 +1017,21 @@
         const res = await fetch(CLOUD_API_URL, { cache: "no-store" });
         if (res.ok) {
           const json = await res.json();
-          if (json && json.data && Array.isArray(json.data.bookings)) {
-            bookings = json.data.bookings;
+          if (json && Array.isArray(json.bookings)) {
+            bookings = json.bookings;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
             renderCalendar();
             updateRoomStatus();
             setSyncStatus("online");
           }
+        } else {
+          setSyncStatus("offline");
         }
       } catch (err) {
         console.warn("Cloud sync offline fallback active:", err);
         setSyncStatus("offline");
       } finally {
         isCloudSyncing = false;
-      }
-    }
-
-    async function pushToCloud(updatedBookings) {
-      setSyncStatus("syncing");
-      bookings = updatedBookings;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
-      if (broadcast) broadcast.postMessage({ type: "SYNC" });
-      renderCalendar();
-      updateRoomStatus();
-
-      try {
-        const bodyData = {
-          name: "boardroom_yenuka_bookings",
-          data: { bookings: updatedBookings }
-        };
-        const res = await fetch(CLOUD_API_URL, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(bodyData)
-        });
-        if (res.ok) {
-          setSyncStatus("online");
-        } else {
-          setSyncStatus("offline");
-        }
-      } catch(e) {
-        setSyncStatus("offline");
       }
     }
 
@@ -1413,7 +1389,7 @@
       $("bookingDialog").close();
     }
 
-    /* Save Booking (Instant Cloud Push) */
+    /* Save Booking (Instant Cloud Push to PostgreSQL) */
     async function saveBookingAction() {
       const title = $("inputTitle").value.trim();
       const organizer = $("inputOrganizer").value.trim();
@@ -1440,7 +1416,7 @@
         return;
       }
 
-      // Conflict validation
+      // Pre-check collision locally first
       const conflict = checkConflict(date, start, end, activeBooking ? activeBooking.id : null);
       if (conflict) {
         showToast(`Cannot book: Time slot already reserved by ${conflict.organizer}!`, "error");
@@ -1448,22 +1424,34 @@
       }
 
       localStorage.setItem("last_name", organizer);
-
-      const newBooking = {
-        id: "b_" + Date.now(),
-        title: title,
-        organizer: organizer,
-        date: date,
-        start: start,
-        end: end
-      };
-
-      const updated = [...bookings, newBooking];
       closeDialog();
       showToast(`Saving "${title}" to online shared database...`, "info");
       
-      await pushToCloud(updated);
-      showToast(`Meeting "${title}" booked & synced online!`, "success");
+      try {
+        const res = await fetch(CLOUD_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title, organizer, date, start, end })
+        });
+        const data = await res.json();
+        if (res.status === 409) {
+          showToast(data.error || "Conflict: slot already taken!", "error");
+          await syncFromCloud();
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || "Save failed");
+
+        showToast(`Meeting "${title}" booked & synced online!`, "success");
+        await syncFromCloud();
+        if (broadcast) broadcast.postMessage({ type: "SYNC" });
+      } catch (err) {
+        showToast("Offline fallback: saved locally.", "info");
+        const newBooking = { id: "b_" + Date.now(), title, organizer, date, start, end };
+        bookings.push(newBooking);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+        renderCalendar();
+        updateRoomStatus();
+      }
     }
 
     /* Cancel Booking (Instant Cloud Push & Free Slot) */
@@ -1475,12 +1463,24 @@
       }
 
       const canceledId = activeBooking.id;
-      const updated = bookings.filter(b => b.id !== canceledId);
       closeDialog();
+      showToast("Removing from online database...", "info");
 
-      showToast("Updating online database...", "info");
-      await pushToCloud(updated);
-      showToast("Booking canceled! Slot is now 100% free.", "success");
+      try {
+        const res = await fetch(`${CLOUD_API_URL}?id=${encodeURIComponent(canceledId)}`, {
+          method: "DELETE"
+        });
+        if (!res.ok) throw new Error("Delete failed");
+        showToast("Booking canceled! Slot is now 100% free.", "success");
+        await syncFromCloud();
+        if (broadcast) broadcast.postMessage({ type: "SYNC" });
+      } catch (err) {
+        bookings = bookings.filter(b => b.id !== canceledId);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+        renderCalendar();
+        updateRoomStatus();
+        showToast("Booking canceled locally.", "success");
+      }
     }
 
     /* Navigation */
@@ -1517,10 +1517,16 @@
         .replace(/'/g, "&#039;");
     }
 
-    // Auto-sync from cloud every 5 seconds so all users see updates live
+    // Auto-sync from cloud every 3 seconds so all users see updates live
     setInterval(() => {
       syncFromCloud();
-    }, 5000);
+    }, 3000);
+
+    // Sync immediately when window is focused or tab is reopened
+    window.addEventListener("focus", () => syncFromCloud());
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) syncFromCloud();
+    });
 
     // Auto-update now line and room status every 60s
     setInterval(() => {
