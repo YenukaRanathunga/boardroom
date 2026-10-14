@@ -1,0 +1,1539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Board Room — Live Online Booking</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <style>
+    :root {
+      /* Official Microsoft New Outlook Calendar Color Palette */
+      --outlook-blue: #0078D4;
+      --outlook-blue-hover: #106EBE;
+      --outlook-blue-pressed: #005A9E;
+      --outlook-light-blue: #C7E0F4;
+      --outlook-card-blue: #C7E0F4;
+      --outlook-card-blue-border: #0078D4;
+      --outlook-card-blue-text: #004A83;
+
+      --outlook-card-purple: #E8D5F5;
+      --outlook-card-purple-border: #8764B8;
+      --outlook-card-purple-text: #3E1A68;
+
+      --outlook-card-green: #D2EBD4;
+      --outlook-card-green-border: #107C41;
+      --outlook-card-green-text: #0E4823;
+
+      --bg-app: #F5F6F8;
+      --bg-card: #FFFFFF;
+      --bg-hover: #EDEBE9;
+      --border-color: #E1DFDD;
+      --border-subtle: #F3F2F1;
+      --text-primary: #242424;
+      --text-secondary: #605E5C;
+      --text-disabled: #A19F9D;
+      
+      --font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: var(--font-family);
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-size: 13px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 1. Outlook Top Title Bar */
+    .outlook-titlebar {
+      height: 48px;
+      min-height: 48px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      gap: 16px;
+      user-select: none;
+      z-index: 30;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 200px;
+    }
+
+    .outlook-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--outlook-blue);
+      cursor: pointer;
+    }
+
+    .titlebar-center {
+      flex: 1;
+      max-width: 520px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: #F0F2F5;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 0 12px;
+      height: 32px;
+      gap: 8px;
+      transition: background 0.15s, border 0.15s;
+    }
+    .search-box:focus-within {
+      background: #FFFFFF;
+      border-color: var(--outlook-blue);
+      box-shadow: 0 0 0 1px var(--outlook-blue);
+    }
+    .search-box input {
+      border: none;
+      background: transparent;
+      outline: none;
+      width: 100%;
+      font-size: 13px;
+      font-family: inherit;
+      color: var(--text-primary);
+    }
+    .search-box input::placeholder {
+      color: var(--text-secondary);
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Cloud Sync ERP Indicator */
+    .cloud-sync-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #107C41;
+      background: #DFF6DD;
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid #B8E4BA;
+    }
+    .cloud-sync-pill.syncing {
+      color: var(--outlook-blue);
+      background: #EFF6FC;
+      border-color: #C7E0F4;
+    }
+    .sync-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #107C41;
+    }
+    .sync-dot.pulse {
+      animation: pulseSync 1.5s infinite;
+    }
+    @keyframes pulseSync {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+    }
+
+    .user-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--outlook-blue);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    /* 2. Main Layout (Sidebar + Calendar Workspace) */
+    .app-main {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      height: calc(100vh - 48px);
+    }
+
+    /* Left Sidebar (Clean, No rail) */
+    .outlook-sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: #FFFFFF;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 14px 14px;
+      gap: 16px;
+      overflow-y: auto;
+      user-select: none;
+    }
+
+    .btn-new-event {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--outlook-blue);
+      color: #FFFFFF;
+      border: none;
+      border-radius: 4px;
+      padding: 9px 16px;
+      font-weight: 600;
+      font-size: 13.5px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: background 0.15s;
+    }
+    .btn-new-event:hover {
+      background: var(--outlook-blue-hover);
+    }
+
+    /* Mini Calendar */
+    .mini-cal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .mini-cal-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 11px;
+      row-gap: 2px;
+    }
+    .mini-cal-day-name {
+      color: var(--text-secondary);
+      font-weight: 600;
+      padding: 4px 0;
+    }
+    .mini-cal-date {
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 50%;
+    }
+    .mini-cal-date:hover {
+      background: var(--bg-hover);
+    }
+    .mini-cal-date.active {
+      background: var(--outlook-blue);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+    .mini-cal-date.in-week {
+      background: #EFF6FC;
+      border-radius: 0;
+    }
+    .mini-cal-date.in-week.active {
+      background: var(--outlook-blue);
+      color: #FFFFFF;
+      border-radius: 50%;
+    }
+
+    /* Sidebar Calendars List */
+    .cal-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .cal-checkbox-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      padding: 4px 0;
+      cursor: pointer;
+    }
+    .cal-dot-icon {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    /* 3. Calendar Main View Area */
+    .calendar-workspace {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: #FFFFFF;
+      height: 100%;
+    }
+
+    /* Outlook Ribbon Toolbar */
+    .outlook-ribbon {
+      height: 48px;
+      min-height: 48px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: #FFFFFF;
+      user-select: none;
+    }
+
+    .ribbon-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-today-nav {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 5px 12px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      color: var(--text-primary);
+    }
+    .btn-today-nav:hover {
+      background: var(--bg-hover);
+    }
+
+    .btn-chevron {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 5px 8px;
+      cursor: pointer;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+    .btn-chevron:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .current-month-dropdown {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .ribbon-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .room-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #EFF6FC;
+      border: 1px solid #C7E0F4;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--outlook-blue);
+    }
+    .room-badge .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #107C41;
+    }
+    .room-badge .live-dot.busy {
+      background: #D13438;
+    }
+
+    /* 4. Calendar Week Grid - FULL HEIGHT STRETCH */
+    .calendar-body-scroll {
+      flex: 1;
+      height: calc(100% - 48px);
+      overflow-y: auto;
+      overflow-x: auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .grid-week-wrap {
+      min-width: 840px;
+      flex: 1;
+      min-height: 100%;
+      display: grid;
+      grid-template-columns: 60px repeat(7, 1fr);
+      position: relative;
+    }
+
+    /* Day Headers (Sun - Sat) */
+    .grid-header-cell {
+      position: sticky;
+      top: 0;
+      height: 42px;
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      border-left: 1px solid var(--border-color);
+      padding: 0 10px;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      user-select: none;
+    }
+    .grid-header-cell.time-corner {
+      border-left: none;
+      font-size: 11px;
+      color: var(--text-secondary);
+      justify-content: flex-end;
+      padding-right: 8px;
+    }
+    .header-day-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .header-day-name {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .header-day-num {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+    }
+    .header-day-num.is-today {
+      background: var(--outlook-blue);
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+    .header-weather {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Time Axis (Left Column) */
+    .time-axis-col {
+      background: #FFFFFF;
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+    .time-axis-cell {
+      height: 54px;
+      min-height: 54px;
+      text-align: right;
+      padding-right: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      transform: translateY(-8px);
+      user-select: none;
+      font-weight: 500;
+    }
+    .time-axis-cell.current-hour {
+      color: var(--outlook-blue);
+      font-weight: 600;
+    }
+
+    /* Day Column in Grid - Extends to the very bottom */
+    .grid-day-col {
+      position: relative;
+      border-left: 1px solid var(--border-color);
+      background: #FFFFFF;
+      display: flex;
+      flex-direction: column;
+      min-height: 100%;
+    }
+
+    /* Half-Hour Slot Lines (27px each, 54px per hour) */
+    .slot-row-half {
+      height: 27px;
+      min-height: 27px;
+      position: relative;
+      cursor: pointer;
+    }
+    .slot-row-half:nth-child(odd) {
+      border-top: 1px solid #EDEBE9;
+    }
+    .slot-row-half:nth-child(even) {
+      border-top: 1px dotted #F3F2F1;
+    }
+    .slot-row-half:hover {
+      background: #F3F8FD;
+    }
+
+    /* Current Time Blue Line with Dot (Outlook Screenshot) */
+    .outlook-now-marker {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--outlook-blue);
+      z-index: 15;
+      pointer-events: none;
+    }
+    .outlook-now-marker::before {
+      content: '';
+      position: absolute;
+      left: -5px;
+      top: -4px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--outlook-blue);
+    }
+
+    /* Meeting Card (Clean Outlook Theme) */
+    .outlook-event-card {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      border-radius: 4px;
+      border-left: 4px solid var(--outlook-card-blue-border);
+      background: var(--outlook-card-blue);
+      color: var(--outlook-card-blue-text);
+      padding: 4px 6px;
+      overflow: hidden;
+      cursor: pointer;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.15s, transform 0.15s;
+    }
+    .outlook-event-card:hover {
+      box-shadow: 0 4px 10px rgba(0,0,0,0.16);
+      transform: translateY(-1px);
+      z-index: 12;
+    }
+
+    .event-card-purple {
+      border-left-color: var(--outlook-card-purple-border);
+      background: var(--outlook-card-purple);
+      color: var(--outlook-card-purple-text);
+    }
+
+    .event-card-green {
+      border-left-color: var(--outlook-card-green-border);
+      background: var(--outlook-card-green);
+      color: var(--outlook-card-green-text);
+    }
+
+    .card-title {
+      font-weight: 600;
+      font-size: 11.5px;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card-meta {
+      font-size: 10px;
+      opacity: 0.9;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Simple Modal / Dialog */
+    dialog.outlook-dialog {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #FFFFFF;
+      color: var(--text-primary);
+      padding: 0;
+      width: min(440px, 94vw);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.22);
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    dialog.outlook-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(1px);
+    }
+
+    .dialog-header {
+      background: #FFFFFF;
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .dialog-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--outlook-blue);
+    }
+    .dialog-close-btn {
+      background: transparent;
+      border: none;
+      font-size: 16px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .dialog-close-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    .dialog-content {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-group label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .form-group input, .form-group select {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      background: #FFFFFF;
+      color: var(--text-primary);
+      outline: none;
+    }
+    .form-group input:focus, .form-group select:focus {
+      border-color: var(--outlook-blue);
+      box-shadow: 0 0 0 1px var(--outlook-blue);
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .status-banner {
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .status-banner.available {
+      background: #DFF6DD;
+      color: #107C41;
+      border: 1px solid #B8E4BA;
+    }
+    .status-banner.conflict {
+      background: #FDE7E9;
+      color: #D13438;
+      border: 1px solid #F5B2BA;
+    }
+
+    .dialog-footer {
+      padding: 12px 18px;
+      background: #FAF9F8;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .btn-dialog {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid transparent;
+    }
+    .btn-dialog-primary {
+      background: var(--outlook-blue);
+      color: #FFFFFF;
+    }
+    .btn-dialog-primary:hover {
+      background: var(--outlook-blue-hover);
+    }
+    .btn-dialog-secondary {
+      background: #FFFFFF;
+      border-color: var(--border-color);
+      color: var(--text-primary);
+    }
+    .btn-dialog-secondary:hover {
+      background: var(--bg-hover);
+    }
+    .btn-dialog-danger {
+      background: #D13438;
+      color: #FFFFFF;
+    }
+    .btn-dialog-danger:hover {
+      background: #B12529;
+    }
+
+    /* Toast */
+    .toast-mount {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast-pill {
+      pointer-events: auto;
+      background: #FFFFFF;
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-left: 5px solid var(--outlook-blue);
+      padding: 10px 16px;
+      border-radius: 4px;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+      font-size: 13px;
+      animation: slideIn 0.2s ease forwards;
+    }
+    .toast-pill.success { border-left-color: #107C41; }
+    .toast-pill.error { border-left-color: #D13438; }
+
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Top Outlook Title Bar -->
+  <header class="outlook-titlebar">
+    <div class="titlebar-left">
+      <div class="outlook-brand">
+        <!-- Clean Microsoft Outlook / Board Room Logo -->
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="4" width="20" height="16" rx="3" fill="#0078D4"/>
+          <path d="M2 7.5L12 14L22 7.5" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="8" cy="12" r="5" fill="#2886DE"/>
+          <text x="8" y="15" fill="#FFFFFF" font-size="7.5" font-weight="bold" text-anchor="middle" font-family="Segoe UI">O</text>
+        </svg>
+        <span>Board Room</span>
+      </div>
+    </div>
+
+    <!-- Center Search Bar -->
+    <div class="titlebar-center">
+      <div class="search-box">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="searchInput" placeholder="Search meeting or person..." oninput="renderCalendar()">
+      </div>
+    </div>
+
+    <!-- Right Controls: Online Shared Live Database Indicator & User -->
+    <div class="titlebar-right">
+      <div class="cloud-sync-pill" id="syncStatusPill" title="Live Online Shared Database (All users see live changes)">
+        <span class="sync-dot pulse" id="syncDot"></span>
+        <span id="syncText">Online Live Sync</span>
+      </div>
+      <div class="user-avatar" title="Organizer Account">
+        ME
+      </div>
+    </div>
+  </header>
+
+  <!-- 2. Main App Body -->
+  <div class="app-main">
+    
+    <!-- Left Sidebar -->
+    <aside class="outlook-sidebar">
+      <button class="btn-new-event" onclick="openNewBookingModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        New event
+      </button>
+
+      <!-- Mini Calendar -->
+      <div>
+        <div class="mini-cal-header">
+          <span id="miniCalTitle">Loading...</span>
+          <div style="display:flex; gap:2px;">
+            <button class="btn-chevron" onclick="navigateWeek(-1)">‹</button>
+            <button class="btn-chevron" onclick="navigateWeek(1)">›</button>
+          </div>
+        </div>
+        <div class="mini-cal-grid" id="miniCalGrid">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+      <!-- Calendars Section -->
+      <div>
+        <div class="cal-section-title">
+          <span>My calendars</span>
+        </div>
+        <div class="cal-checkbox-item">
+          <div class="cal-dot-icon" style="background: #0078D4;">✓</div>
+          <span style="font-weight: 600;">Board Room Calendar</span>
+        </div>
+        <div class="cal-checkbox-item" style="opacity: 0.85;">
+          <div class="cal-dot-icon" style="background: #106EBE;">✓</div>
+          <span>Reserved Meetings</span>
+        </div>
+      </div>
+
+      <div style="margin-top:auto; font-size:11px; color:var(--text-secondary); line-height:1.4;">
+        🌐 <b>Live Shared ERP Base:</b><br>
+        All bookings sync automatically across all users & devices in real time.
+      </div>
+    </aside>
+
+    <!-- Calendar Main Area -->
+    <section class="calendar-workspace">
+      
+      <!-- Outlook Ribbon Toolbar -->
+      <div class="outlook-ribbon">
+        <div class="ribbon-left">
+          <button class="btn-today-nav" onclick="navigateToday()">Today</button>
+          <button class="btn-chevron" onclick="navigateWeek(-1)" title="Previous week">‹</button>
+          <button class="btn-chevron" onclick="navigateWeek(1)" title="Next week">›</button>
+          <div class="current-month-dropdown" id="ribbonDateLabel">
+            <span>Loading...</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </div>
+        </div>
+
+        <div class="ribbon-right">
+          <!-- Live Room Status -->
+          <div class="room-badge" id="liveRoomPill">
+            <span class="live-dot" id="liveDot"></span>
+            <span id="liveStatusText">Board Room Available</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Calendar Week Grid Body (Stretches Full Height to Bottom) -->
+      <div class="calendar-body-scroll">
+        <div class="grid-week-wrap" id="gridWeekWrap">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Outlook Booking Modal (Super Clean & Simple) -->
+  <dialog class="outlook-dialog" id="bookingDialog">
+    <div class="dialog-header">
+      <h3 id="dialogTitle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+        <span id="dialogHeadingText">New Event</span>
+      </h3>
+      <button class="dialog-close-btn" onclick="closeDialog()">✕</button>
+    </div>
+
+    <div class="dialog-content">
+      <!-- Title -->
+      <div class="form-group">
+        <label>Meeting Title / Subject *</label>
+        <input type="text" id="inputTitle" placeholder="Add title (e.g. Executive Board Sync)" maxlength="70" oninput="checkConflictLive()">
+      </div>
+
+      <!-- Booked By -->
+      <div class="form-group">
+        <label>Booked By (Your Name) *</label>
+        <input type="text" id="inputOrganizer" placeholder="Your name (e.g. Yenuka Ranathunga)" maxlength="40" oninput="checkConflictLive()">
+      </div>
+
+      <!-- Date -->
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" id="inputDate" onchange="checkConflictLive()">
+      </div>
+
+      <!-- Start & End Time -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start time</label>
+          <select id="selectStartTime" onchange="onStartTimeChanged()"></select>
+        </div>
+
+        <div class="form-group">
+          <label>End time</label>
+          <select id="selectEndTime" onchange="checkConflictLive()"></select>
+        </div>
+      </div>
+
+      <!-- Live Conflict / Available Banner -->
+      <div id="conflictAlert" class="status-banner available">
+        <span id="conflictAlertText">✅ Slot is completely free and ready to book.</span>
+      </div>
+    </div>
+
+    <div class="dialog-footer">
+      <div>
+        <button class="btn-dialog btn-dialog-danger" id="btnCancelExisting" style="display:none;" onclick="cancelBookingAction()">
+          Cancel Booking (Free Slot)
+        </button>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="btn-dialog btn-dialog-secondary" onclick="closeDialog()">Discard</button>
+        <button class="btn-dialog btn-dialog-primary" id="btnSaveBooking" onclick="saveBookingAction()">Save</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Toast Container -->
+  <div class="toast-mount" id="toastMount"></div>
+
+  <!-- Logic & Cloud Engine -->
+  <script>
+    const START_HOUR = 8;   // 8 AM
+    const END_HOUR = 20;    // 8 PM (Extends 12 full hours to reach bottom comfortably)
+    const SLOT_HEIGHT = 54; // 54px per hour (27px per 30m)
+    const DAYS_COUNT = 7;   // Sunday to Saturday (Like Outlook Screenshot)
+
+    const STORAGE_KEY = "outlook_boardroom_db_v3";
+    
+    // Live Online Shared ERP Cloud API (shared across all users in real time)
+    const CLOUD_API_URL = "https://api.restful-api.dev/objects/ff808181a09d98f701a13939d36c5b47";
+
+    const CARD_STYLES = [
+      { class: "outlook-event-card", border: "#0078D4", bg: "#C7E0F4", text: "#004A83" },
+      { class: "outlook-event-card", border: "#106EBE", bg: "#DEECF9", text: "#003A66" },
+      { class: "outlook-event-card event-card-purple", border: "#8764B8", bg: "#E8D5F5", text: "#3E1A68" },
+      { class: "outlook-event-card event-card-green", border: "#107C41", bg: "#D2EBD4", text: "#0E4823" }
+    ];
+
+    const WEATHER_ICONS = ["72° ☀️", "70° 🌤️", "72° ⛅", "73° 🌤️", "74° ☀️", "71° 🌤️", "72° ☀️"];
+
+    let currentWeekStart = getSunday(new Date());
+    let bookings = [];
+    let activeBooking = null;
+    let isCloudSyncing = false;
+
+    const $ = id => document.getElementById(id);
+
+    // Multi-tab sync via BroadcastChannel
+    let broadcast = null;
+    try {
+      broadcast = new BroadcastChannel("boardroom_live_sync");
+      broadcast.onmessage = (e) => {
+        if (e.data && e.data.type === "SYNC") {
+          loadLocalData();
+          renderCalendar();
+          updateRoomStatus();
+        }
+      };
+    } catch(e) {}
+
+    /* Date Helpers */
+    function getSunday(d) {
+      const date = new Date(d);
+      date.setHours(0, 0, 0, 0);
+      const day = date.getDay(); // 0 is Sunday
+      date.setDate(date.getDate() - day);
+      return date;
+    }
+
+    function formatYMD(d) {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function formatTime12(totalMinutes) {
+      let h = Math.floor(totalMinutes / 60);
+      const m = totalMinutes % 60;
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
+      return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
+    }
+
+    function getCardStyle(seed) {
+      let hash = 0;
+      for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+      return CARD_STYLES[hash % CARD_STYLES.length];
+    }
+
+    /* Cloud Sync Engine (ERP Live Shared Online Database) */
+    async function syncFromCloud() {
+      if (isCloudSyncing) return;
+      isCloudSyncing = true;
+      try {
+        const res = await fetch(CLOUD_API_URL, { cache: "no-store" });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.data && Array.isArray(json.data.bookings)) {
+            bookings = json.data.bookings;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+            renderCalendar();
+            updateRoomStatus();
+            setSyncStatus("online");
+          }
+        }
+      } catch (err) {
+        console.warn("Cloud sync offline fallback active:", err);
+        setSyncStatus("offline");
+      } finally {
+        isCloudSyncing = false;
+      }
+    }
+
+    async function pushToCloud(updatedBookings) {
+      setSyncStatus("syncing");
+      bookings = updatedBookings;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bookings));
+      if (broadcast) broadcast.postMessage({ type: "SYNC" });
+      renderCalendar();
+      updateRoomStatus();
+
+      try {
+        const bodyData = {
+          name: "boardroom_yenuka_bookings",
+          data: { bookings: updatedBookings }
+        };
+        const res = await fetch(CLOUD_API_URL, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyData)
+        });
+        if (res.ok) {
+          setSyncStatus("online");
+        } else {
+          setSyncStatus("offline");
+        }
+      } catch(e) {
+        setSyncStatus("offline");
+      }
+    }
+
+    function setSyncStatus(status) {
+      const pill = $("syncStatusPill");
+      const dot = $("syncDot");
+      const txt = $("syncText");
+      if (status === "online") {
+        pill.className = "cloud-sync-pill";
+        dot.className = "sync-dot pulse";
+        dot.style.background = "#107C41";
+        txt.textContent = "Live Cloud Sync";
+      } else if (status === "syncing") {
+        pill.className = "cloud-sync-pill syncing";
+        dot.className = "sync-dot pulse";
+        dot.style.background = "#0078D4";
+        txt.textContent = "Syncing Online...";
+      } else {
+        pill.className = "cloud-sync-pill";
+        dot.className = "sync-dot";
+        dot.style.background = "#A19F9D";
+        txt.textContent = "Local Backup Active";
+      }
+    }
+
+    function loadLocalData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) bookings = JSON.parse(raw);
+      } catch (e) {
+        bookings = [];
+      }
+    }
+
+    /* Strict Anti-Collision Check */
+    function checkConflict(date, start, end, excludeId = null) {
+      return bookings.find(b => {
+        if (b.date !== date) return false;
+        if (excludeId && b.id === excludeId) return false;
+        return Math.max(b.start, start) < Math.min(b.end, end);
+      });
+    }
+
+    function populateTimes(select, fromMin, toMin, selectedVal) {
+      select.innerHTML = "";
+      for (let m = fromMin; m <= toMin; m += 30) {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = formatTime12(m);
+        select.appendChild(opt);
+      }
+      if (selectedVal !== undefined) select.value = selectedVal;
+    }
+
+    function onStartTimeChanged() {
+      const s = parseInt($("selectStartTime").value, 10);
+      const curEnd = parseInt($("selectEndTime").value, 10);
+      populateTimes($("selectEndTime"), s + 30, END_HOUR * 60, Math.max(curEnd, s + 60));
+      checkConflictLive();
+    }
+
+    function checkConflictLive() {
+      const date = $("inputDate").value;
+      const start = parseInt($("selectStartTime").value, 10);
+      const end = parseInt($("selectEndTime").value, 10);
+
+      const alertBox = $("conflictAlert");
+      const alertText = $("conflictAlertText");
+      const saveBtn = $("btnSaveBooking");
+
+      if (!date) {
+        alertBox.className = "status-banner conflict";
+        alertText.textContent = "Please pick a date.";
+        saveBtn.disabled = true;
+        return;
+      }
+
+      if (end <= start) {
+        alertBox.className = "status-banner conflict";
+        alertText.textContent = "End time must be after start time.";
+        saveBtn.disabled = true;
+        return;
+      }
+
+      const conflict = checkConflict(date, start, end, activeBooking ? activeBooking.id : null);
+      if (conflict) {
+        alertBox.className = "status-banner conflict";
+        alertText.innerHTML = `⚠️ <b>Already Booked:</b> "${escapeHtml(conflict.title)}" by <b>${escapeHtml(conflict.organizer)}</b> (${formatTime12(conflict.start)} – ${formatTime12(conflict.end)}). Please choose another time.`;
+        saveBtn.disabled = true;
+      } else {
+        alertBox.className = "status-banner available";
+        alertText.innerHTML = `✅ <b>Slot Available:</b> ${formatTime12(start)} to ${formatTime12(end)} is completely free!`;
+        saveBtn.disabled = false;
+      }
+    }
+
+    /* Render Calendar */
+    function renderCalendar() {
+      const grid = $("gridWeekWrap");
+      grid.innerHTML = "";
+
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      // Ribbon Label
+      const startMonth = currentWeekStart.toLocaleDateString("en-US", { month: "long" });
+      const endMonth = weekEnd.toLocaleDateString("en-US", { month: "long" });
+      const year = weekEnd.getFullYear();
+      const monthStr = (startMonth === endMonth) 
+        ? `${startMonth} ${currentWeekStart.getDate()} – ${weekEnd.getDate()}, ${year}`
+        : `${startMonth} ${currentWeekStart.getDate()} – ${endMonth} ${weekEnd.getDate()}, ${year}`;
+      $("ribbonDateLabel").querySelector("span").textContent = monthStr;
+      $("miniCalTitle").textContent = `${currentWeekStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })}`;
+
+      // Corner
+      const corner = document.createElement("div");
+      corner.className = "grid-header-cell time-corner";
+      grid.appendChild(corner);
+
+      const todayStr = formatYMD(new Date());
+
+      // 7 Day Headers (Sun - Sat)
+      for (let i = 0; i < DAYS_COUNT; i++) {
+        const d = new Date(currentWeekStart);
+        d.setDate(d.getDate() + i);
+        const dStr = formatYMD(d);
+        const isToday = dStr === todayStr;
+
+        const cell = document.createElement("div");
+        cell.className = "grid-header-cell";
+
+        cell.innerHTML = `
+          <div class="header-day-info">
+            <span class="header-day-name">${d.toLocaleDateString("en-US", { weekday: "short" })}</span>
+            <span class="header-day-num ${isToday ? 'is-today' : ''}">${d.getDate()}</span>
+          </div>
+          <div class="header-weather">
+            ${WEATHER_ICONS[i]}
+          </div>
+        `;
+
+        grid.appendChild(cell);
+      }
+
+      // Time Column (Left)
+      const timeCol = document.createElement("div");
+      timeCol.className = "time-axis-col";
+      const currentHour = new Date().getHours();
+
+      for (let h = START_HOUR; h < END_HOUR; h++) {
+        const tCell = document.createElement("div");
+        tCell.className = "time-axis-cell" + (h === currentHour ? " current-hour" : "");
+        const ampm = h >= 12 ? "PM" : "AM";
+        const h12 = h % 12 || 12;
+        tCell.textContent = `${h12} ${ampm}`;
+        timeCol.appendChild(tCell);
+      }
+      grid.appendChild(timeCol);
+
+      const searchFilter = $("searchInput").value.trim().toLowerCase();
+
+      // 7 Day Grid Columns
+      for (let i = 0; i < DAYS_COUNT; i++) {
+        const colDate = new Date(currentWeekStart);
+        colDate.setDate(colDate.getDate() + i);
+        const dateStr = formatYMD(colDate);
+
+        const dayCol = document.createElement("div");
+        dayCol.className = "grid-day-col";
+
+        // Clickable 30-min slot lines
+        for (let m = START_HOUR * 60; m < END_HOUR * 60; m += 30) {
+          const slot = document.createElement("div");
+          slot.className = "slot-row-half";
+          slot.title = `Click to reserve ${formatTime12(m)} on ${dateStr}`;
+          slot.onclick = () => openNewBookingModal(dateStr, m);
+          dayCol.appendChild(slot);
+        }
+
+        // Render Bookings
+        const dayBookings = bookings.filter(b => b.date === dateStr);
+
+        dayBookings.forEach(item => {
+          if (searchFilter) {
+            const match = item.title.toLowerCase().includes(searchFilter) ||
+                          item.organizer.toLowerCase().includes(searchFilter);
+            if (!match) return;
+          }
+
+          const style = getCardStyle(item.organizer + item.title);
+          const topPx = ((item.start - START_HOUR * 60) / 60) * SLOT_HEIGHT;
+          const duration = item.end - item.start;
+          const heightPx = Math.max(((duration) / 60) * SLOT_HEIGHT - 3, 24);
+
+          const card = document.createElement("div");
+          card.className = style.class;
+          card.style.top = `${topPx}px`;
+          card.style.height = `${heightPx}px`;
+
+          card.innerHTML = `
+            <div class="card-title" title="${escapeHtml(item.title)}">
+              ${escapeHtml(item.title)}
+            </div>
+            <div class="card-meta">
+              ${formatTime12(item.start)} – ${formatTime12(item.end)} • ${escapeHtml(item.organizer)}
+            </div>
+          `;
+
+          card.onclick = (e) => {
+            e.stopPropagation();
+            openViewBookingModal(item);
+          };
+
+          dayCol.appendChild(card);
+        });
+
+        // Current time line with dot (if today)
+        if (dateStr === todayStr) {
+          const now = new Date();
+          const currentM = now.getHours() * 60 + now.getMinutes();
+          if (currentM >= START_HOUR * 60 && currentM <= END_HOUR * 60) {
+            const nowLine = document.createElement("div");
+            nowLine.className = "outlook-now-marker";
+            nowLine.style.top = `${((currentM - START_HOUR * 60) / 60) * SLOT_HEIGHT}px`;
+            dayCol.appendChild(nowLine);
+          }
+        }
+
+        grid.appendChild(dayCol);
+      }
+
+      renderMiniCalendar();
+    }
+
+    /* Left Sidebar Mini Calendar */
+    function renderMiniCalendar() {
+      const grid = $("miniCalGrid");
+      grid.innerHTML = "";
+
+      const daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"];
+      daysOfWeek.forEach(d => {
+        const head = document.createElement("div");
+        head.className = "mini-cal-day-name";
+        head.textContent = d;
+        grid.appendChild(head);
+      });
+
+      const todayStr = formatYMD(new Date());
+
+      const calStart = new Date(currentWeekStart);
+      calStart.setDate(calStart.getDate() - calStart.getDay());
+
+      for (let i = 0; i < 35; i++) {
+        const d = new Date(calStart);
+        d.setDate(d.getDate() + i);
+        const dStr = formatYMD(d);
+
+        const dCell = document.createElement("div");
+        dCell.className = "mini-cal-date";
+
+        const weekEnd = new Date(currentWeekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        if (d >= currentWeekStart && d <= weekEnd) {
+          dCell.classList.add("in-week");
+        }
+
+        if (dStr === todayStr) {
+          dCell.classList.add("active");
+        }
+
+        dCell.textContent = d.getDate();
+        dCell.onclick = () => {
+          currentWeekStart = getSunday(d);
+          renderCalendar();
+        };
+
+        grid.appendChild(dCell);
+      }
+    }
+
+    /* Live Room Status */
+    function updateRoomStatus() {
+      const now = new Date();
+      const todayStr = formatYMD(now);
+      const currentM = now.getHours() * 60 + now.getMinutes();
+
+      const active = bookings.find(b => b.date === todayStr && currentM >= b.start && currentM < b.end);
+
+      const dot = $("liveDot");
+      const txt = $("liveStatusText");
+
+      if (active) {
+        dot.className = "live-dot busy";
+        txt.innerHTML = `<span style="color:#D13438;">Busy until ${formatTime12(active.end)}</span> (${escapeHtml(active.organizer)})`;
+      } else {
+        dot.className = "live-dot";
+        txt.textContent = "Board Room Available";
+      }
+    }
+
+    /* Modal Operations */
+    function openNewBookingModal(dateStr, startMin) {
+      activeBooking = null;
+      $("dialogHeadingText").textContent = "New event";
+      $("inputTitle").value = "";
+      $("inputOrganizer").value = localStorage.getItem("last_name") || "";
+
+      $("inputTitle").disabled = false;
+      $("inputOrganizer").disabled = false;
+      $("inputDate").disabled = false;
+      $("selectStartTime").disabled = false;
+      $("selectEndTime").disabled = false;
+
+      const targetDate = dateStr || formatYMD(new Date());
+      $("inputDate").value = targetDate;
+
+      const s = startMin !== undefined ? startMin : 9 * 60;
+      populateTimes($("selectStartTime"), START_HOUR * 60, (END_HOUR * 60) - 30, s);
+      populateTimes($("selectEndTime"), s + 30, END_HOUR * 60, Math.min(s + 60, END_HOUR * 60));
+
+      $("btnCancelExisting").style.display = "none";
+      $("btnSaveBooking").style.display = "inline-flex";
+
+      checkConflictLive();
+      $("bookingDialog").showModal();
+    }
+
+    function openViewBookingModal(booking) {
+      activeBooking = booking;
+      $("dialogHeadingText").textContent = "Event details";
+      $("inputTitle").value = booking.title;
+      $("inputOrganizer").value = booking.organizer;
+      $("inputDate").value = booking.date;
+
+      populateTimes($("selectStartTime"), START_HOUR * 60, (END_HOUR * 60) - 30, booking.start);
+      populateTimes($("selectEndTime"), booking.start + 30, END_HOUR * 60, booking.end);
+
+      $("inputTitle").disabled = true;
+      $("inputOrganizer").disabled = true;
+      $("inputDate").disabled = true;
+      $("selectStartTime").disabled = true;
+      $("selectEndTime").disabled = true;
+
+      $("btnSaveBooking").style.display = "none";
+      $("btnCancelExisting").style.display = "inline-flex";
+
+      const alertBox = $("conflictAlert");
+      alertBox.className = "status-banner available";
+      alertBox.innerHTML = `🔒 <b>Booked by ${escapeHtml(booking.organizer)}.</b> Click "Cancel Booking" below to free this slot immediately.`;
+
+      $("bookingDialog").showModal();
+    }
+
+    function closeDialog() {
+      $("bookingDialog").close();
+    }
+
+    /* Save Booking (Instant Cloud Push) */
+    async function saveBookingAction() {
+      const title = $("inputTitle").value.trim();
+      const organizer = $("inputOrganizer").value.trim();
+      const date = $("inputDate").value;
+      const start = parseInt($("selectStartTime").value, 10);
+      const end = parseInt($("selectEndTime").value, 10);
+
+      if (!title) {
+        showToast("Please enter a meeting title.", "error");
+        $("inputTitle").focus();
+        return;
+      }
+      if (!organizer) {
+        showToast("Please enter your name.", "error");
+        $("inputOrganizer").focus();
+        return;
+      }
+      if (!date) {
+        showToast("Please pick a date.", "error");
+        return;
+      }
+      if (end <= start) {
+        showToast("End time must be after start time.", "error");
+        return;
+      }
+
+      // Conflict validation
+      const conflict = checkConflict(date, start, end, activeBooking ? activeBooking.id : null);
+      if (conflict) {
+        showToast(`Cannot book: Time slot already reserved by ${conflict.organizer}!`, "error");
+        return;
+      }
+
+      localStorage.setItem("last_name", organizer);
+
+      const newBooking = {
+        id: "b_" + Date.now(),
+        title: title,
+        organizer: organizer,
+        date: date,
+        start: start,
+        end: end
+      };
+
+      const updated = [...bookings, newBooking];
+      closeDialog();
+      showToast(`Saving "${title}" to online shared database...`, "info");
+      
+      await pushToCloud(updated);
+      showToast(`Meeting "${title}" booked & synced online!`, "success");
+    }
+
+    /* Cancel Booking (Instant Cloud Push & Free Slot) */
+    async function cancelBookingAction() {
+      if (!activeBooking) return;
+
+      if (!confirm(`Cancel "${activeBooking.title}"?\n\nThe slot will become immediately free for everyone online.`)) {
+        return;
+      }
+
+      const canceledId = activeBooking.id;
+      const updated = bookings.filter(b => b.id !== canceledId);
+      closeDialog();
+
+      showToast("Updating online database...", "info");
+      await pushToCloud(updated);
+      showToast("Booking canceled! Slot is now 100% free.", "success");
+    }
+
+    /* Navigation */
+    function navigateWeek(delta) {
+      currentWeekStart.setDate(currentWeekStart.getDate() + delta * 7);
+      renderCalendar();
+    }
+
+    function navigateToday() {
+      currentWeekStart = getSunday(new Date());
+      renderCalendar();
+    }
+
+    function showToast(msg, type = "info") {
+      const mount = $("toastMount");
+      const pill = document.createElement("div");
+      pill.className = `toast-pill ${type}`;
+      pill.textContent = msg;
+      mount.appendChild(pill);
+      setTimeout(() => {
+        pill.style.opacity = "0";
+        pill.style.transition = "0.3s";
+        setTimeout(() => pill.remove(), 300);
+      }, 3500);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Auto-sync from cloud every 5 seconds so all users see updates live
+    setInterval(() => {
+      syncFromCloud();
+    }, 5000);
+
+    // Auto-update now line and room status every 60s
+    setInterval(() => {
+      renderCalendar();
+      updateRoomStatus();
+    }, 60000);
+
+    window.addEventListener("DOMContentLoaded", () => {
+      loadLocalData();
+      renderCalendar();
+      updateRoomStatus();
+      syncFromCloud(); // initial online sync
+    });
+  </script>
+</body>
+</html>
